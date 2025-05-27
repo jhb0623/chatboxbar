@@ -1,0 +1,6 @@
+## Interface: 11150
+## Title: chatbox
+## Notes: 聊天频道快捷按钮
+## OptionalDeps: LibDBIcon-1.0
+
+chatbox.lua
