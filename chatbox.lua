@@ -25,25 +25,42 @@ local channels = {
     { text = "团",   channel = "RAID",    command = "RAID"   },
     { text = "喊",   channel = "YELL",    command = "YELL"   },
     { 
-        text = "肉", 
+        text = "R",  -- 肉 -> R
         func = function()
             RandomRoll(1, 100)
-            PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
         end
     },
     { 
-        text = "到", 
+        text = "就",  -- 到 -> 就
         func = function()
             if IsInGroup() then
-                local channel = IsInRaid() and "RAID" or "PARTY"
-                SendChatMessage(UnitName("player").." 已准备就绪！", channel)
-                PlaySound(SOUNDKIT.READY_CHECK)
+                -- 使用内置就位确认功能
+                DoReadyCheck()
+                
+                -- 发送就位确认通知
+                local channelType = IsInRaid() and "RAID" or "PARTY"
+                SendChatMessage("就位确认已开始，请检查状态！", channelType)
             else
                 print("|cFFFF0000需要加入队伍或团队|r")
             end
         end
     },
-   }
+    -- DBM倒计时
+    { 
+        text = "倒",  -- 拉 -> 倒
+        func = function()
+            if IsInGroup() then
+                if DBM then
+                    SlashCmdList["DEADLYBOSSMODS"]("pull 5")
+                else
+                    print("|cFFFF0000需要安装DBM插件|r")
+                end
+            else
+                print("|cFFFF0000需要加入队伍或团队|r")
+            end
+        end
+    }
+}
 
 -- 创建主框架
 local frame = CreateFrame("Frame", "ChannelButtonsFrame", UIParent)
@@ -84,15 +101,14 @@ for i, config in ipairs(channels) do
         else
             ChatFrame_OpenChat("/"..config.channel:lower())
         end
-        PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
     end)
     
     -- 悬停提示
     btn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        local tip = config.text == "掷点" and "随机骰子 (1-100)"
-                  or config.text == "就位" and "发送就位确认通知"
-                  or config.text == "倒计时" and "发起5秒团队倒计时"
+        local tip = config.text == "R" and "随机骰子 (1-100)"
+                  or config.text == "就" and "发起就位确认"
+                  or config.text == "倒" and "发起DBM 5秒倒计时"
                   or "切换到"..config.text.."频道"
         GameTooltip:AddLine(tip)
         GameTooltip:Show()
