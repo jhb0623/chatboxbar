@@ -1,4 +1,4 @@
-## Interface: 11150
+## Interface: 11170
 ## Title: chatbox
 ## Notes: 聊天频道快捷按钮
 ## OptionalDeps: LibDBIcon-1.0

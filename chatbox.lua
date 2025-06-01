@@ -25,19 +25,16 @@ local channels = {
     { text = "团",   channel = "RAID",    command = "RAID"   },
     { text = "喊",   channel = "YELL",    command = "YELL"   },
     { 
-        text = "R",  -- 肉 -> R
+        text = "R",  -- 随机骰子
         func = function()
             RandomRoll(1, 100)
         end
     },
     { 
-        text = "就",  -- 到 -> 就
+        text = "就",  -- 就位确认
         func = function()
             if IsInGroup() then
-                -- 使用内置就位确认功能
                 DoReadyCheck()
-                
-                -- 发送就位确认通知
                 local channelType = IsInRaid() and "RAID" or "PARTY"
                 SendChatMessage("就位确认已开始，请检查状态！", channelType)
             else
@@ -47,7 +44,7 @@ local channels = {
     },
     -- DBM倒计时
     { 
-        text = "倒",  -- 拉 -> 倒
+        text = "倒",  -- 倒计时
         func = function()
             if IsInGroup() then
                 if DBM then
@@ -59,6 +56,13 @@ local channels = {
                 print("|cFFFF0000需要加入队伍或团队|r")
             end
         end
+    },
+    -- 重载界面按钮
+    { 
+        text = "载",  -- 重载界面
+        func = function()
+            ReloadUI()
+        end
     }
 }
 
@@ -68,6 +72,10 @@ frame:SetMovable(true)
 frame:EnableMouse(true)
 frame:RegisterForDrag("LeftButton")
 frame:SetClampedToScreen(true)
+
+-- 位置跟踪变量
+frame.lastCheck = 0
+frame.isDragging = false
 
 -- 设置初始位置
 frame:SetPoint(
@@ -109,6 +117,7 @@ for i, config in ipairs(channels) do
         local tip = config.text == "R" and "随机骰子 (1-100)"
                   or config.text == "就" and "发起就位确认"
                   or config.text == "倒" and "发起DBM 5秒倒计时"
+                  or config.text == "载" and "重载用户界面"
                   or "切换到"..config.text.."频道"
         GameTooltip:AddLine(tip)
         GameTooltip:Show()
@@ -122,63 +131,89 @@ end
 frame:SetWidth((buttonWidth + spacing) * #channels - spacing)
 frame:SetHeight(buttonHeight)
 
+-- 右键点击重置位置
+frame:SetScript("OnMouseUp", function(self, button)
+    if button == "RightButton" then
+        self:ClearAllPoints()
+        self:SetPoint(defaults.position.point, 
+                     defaults.position.relativeTo, 
+                     defaults.position.relativePoint,
+                     defaults.position.x,
+                     defaults.position.y)
+        db.position = CopyTable(defaults.position)
+        print("|cFF00FF00频道按钮位置已重置|r")
+    end
+end)
+
 -- 拖动处理
 frame:SetScript("OnDragStart", function(self)
     self:StartMoving()
+    self.isDragging = true
 end)
 
 frame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
-    local point, _, relativePoint, x, y = self:GetPoint(1)
+    self.isDragging = false
+    
+    -- 统一保存为BOTTOMLEFT相对于TOPLEFT格式
+    self:ClearAllPoints()
+    local cfLeft = ChatFrame1:GetLeft()
+    local cfTop = ChatFrame1:GetTop()
+    local selfLeft = self:GetLeft()
+    local selfBottom = self:GetBottom()
+    
+    local offsetX = selfLeft - cfLeft
+    local offsetY = selfBottom - cfTop
+    
+    self:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", offsetX, offsetY)
+    
     db.position = {
-        point = point,
+        point = "BOTTOMLEFT",
         relativeTo = "ChatFrame1",
-        relativePoint = relativePoint,
-        x = x,
-        y = y
+        relativePoint = "TOPLEFT",
+        x = offsetX,
+        y = offsetY
     }
 end)
 
--- 自动跟随聊天框
-ChatFrame1:HookScript("OnSizeChanged", function()
-    frame:ClearAllPoints()
-    frame:SetPoint(db.position.point, 
-        db.position.relativeTo, 
-        db.position.relativePoint,
-        db.position.x,
-        db.position.y)
-end)
-
--- 右键菜单
-frame:SetScript("OnMouseUp", function(self, button)
-    if button == "RightButton" then
-        local menuFrame = CreateFrame("Frame", nil, UIParent, "UIDropDownMenuTemplate")
-        local menuItems = {
-            {
-                text = "频道按钮设置",
-                isTitle = true,
-                notCheckable = true
-            },
-            {
-                text = "重置位置",
-                func = function()
-                    frame:ClearAllPoints()
-                    frame:SetPoint(defaults.position.point, 
-                        defaults.position.relativeTo, 
-                        defaults.position.relativePoint,
-                        defaults.position.x,
-                        defaults.position.y)
-                    db.position = CopyTable(defaults.position)
+-- 位置跟踪：每0.5秒检查一次聊天框位置
+frame:SetScript("OnUpdate", function(self, elapsed)
+    self.lastCheck = self.lastCheck + elapsed
+    if self.lastCheck > 0.5 then
+        self.lastCheck = 0
+        
+        if self.isDragging then return end
+        
+        local cfPoint, cfRelativeTo, cfRelativePoint, cfX, cfY = ChatFrame1:GetPoint(1)
+        local cfRelativeToName = cfRelativeTo and cfRelativeTo:GetName() or nil
+        
+        if not self.lastChatPoint then
+            -- 首次记录位置
+            self.lastChatPoint = {cfPoint, cfRelativeToName, cfRelativePoint, cfX, cfY}
+        else
+            -- 检查位置变化
+            local current = {cfPoint, cfRelativeToName, cfRelativePoint, cfX, cfY}
+            local changed = false
+            
+            for i = 1, #current do
+                if current[i] ~= self.lastChatPoint[i] then
+                    changed = true
+                    break
                 end
-            }
-        }
-        
-        UIDropDownMenu_Initialize(menuFrame, function()
-            for _, item in ipairs(menuItems) do
-                UIDropDownMenu_AddButton(item)
             end
-        end)
-        
-        ToggleDropDownMenu(1, nil, menuFrame, self, 0, 0)
+            
+            if changed then
+                -- 更新按钮面板位置
+                self:ClearAllPoints()
+                self:SetPoint(
+                    db.position.point,
+                    db.position.relativeTo,
+                    db.position.relativePoint,
+                    db.position.x,
+                    db.position.y
+                )
+                self.lastChatPoint = current
+            end
+        end
     end
 end)
