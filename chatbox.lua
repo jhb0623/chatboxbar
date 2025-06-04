@@ -1,4 +1,3 @@
--- chatbox.lua
 local addonName, addon = ...
 local DB_NAME = "ChannelButtonsDB"
 
@@ -17,7 +16,7 @@ local defaults = {
 ChannelButtonsDB = ChannelButtonsDB or CopyTable(defaults)
 local db = ChannelButtonsDB
 
--- 频道配置
+-- 频道配置（包含新添加的"世"按钮）
 local channels = {
     { text = "说",     channel = "SAY",     command = ""       },
     { text = "会",   channel = "GUILD",   command = "GUILD" },
@@ -62,6 +61,35 @@ local channels = {
         text = "载",  -- 重载界面
         func = function()
             ReloadUI()
+        end
+    },
+    -- 新添加的大脚世界频道按钮
+    { 
+        text = "世",  -- 大脚世界频道
+        func = function()
+            local channelName = "大脚世界频道"
+            local channelIndex = GetChannelName(channelName)
+            
+            if channelIndex == 0 then
+                -- 加入频道
+                JoinChannelByName(channelName)
+                
+                -- 显示加入提示
+                print("|cFF00FF00正在加入大脚世界频道...|r")
+                
+                -- 延迟0.5秒后切换到频道
+                C_Timer.After(0.5, function()
+                    channelIndex = GetChannelName(channelName)
+                    if channelIndex > 0 then
+                        ChatFrame_OpenChat("/"..channelIndex)
+                    else
+                        print("|cFFFF0000加入大脚世界频道失败|r")
+                    end
+                end)
+            else
+                -- 直接切换到频道
+                ChatFrame_OpenChat("/"..channelIndex)
+            end
         end
     }
 }
@@ -118,6 +146,7 @@ for i, config in ipairs(channels) do
                   or config.text == "就" and "发起就位确认"
                   or config.text == "倒" and "发起DBM 5秒倒计时"
                   or config.text == "载" and "重载用户界面"
+                  or config.text == "世" and "加入并切换到世界频道"  -- 新增的提示
                   or "切换到"..config.text.."频道"
         GameTooltip:AddLine(tip)
         GameTooltip:Show()
