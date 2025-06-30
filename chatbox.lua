@@ -18,16 +18,17 @@ local db = ChannelButtonsDB
 
 -- 频道配置（包含新添加的"世"按钮）
 local channels = {
-    { text = "说",     channel = "SAY",     command = ""       },
-    { text = "会",   channel = "GUILD",   command = "GUILD" },
-    { text = "队",   channel = "PARTY",   command = "PARTY"  },
-    { text = "团",   channel = "RAID",    command = "RAID"   },
-    { text = "喊",   channel = "YELL",    command = "YELL"   },
+    { text = "说",     channel = "SAY",     command = "",       color = {1, 1, 1} },   -- 白色
+    { text = "会",   channel = "GUILD",   command = "GUILD", color = {0, 1, 0} },   -- 绿色
+    { text = "队",   channel = "PARTY",   command = "PARTY",  color = {0, 0.5, 1} }, -- 浅蓝色
+    { text = "团",   channel = "RAID",    command = "RAID",   color = {1, 0.5, 0} }, -- 橙色
+    { text = "喊",   channel = "YELL",    command = "YELL",   color = {1, 0, 0} },   -- 红色
     { 
         text = "R",  -- 随机骰子
         func = function()
             RandomRoll(1, 100)
-        end
+        end,
+        color = {0.5, 0, 1} -- 紫色
     },
     { 
         text = "就",  -- 就位确认
@@ -39,7 +40,8 @@ local channels = {
             else
                 print("|cFFFF0000需要加入队伍或团队|r")
             end
-        end
+        end,
+        color = {1, 1, 0} -- 黄色
     },
     -- DBM倒计时
     { 
@@ -54,14 +56,16 @@ local channels = {
             else
                 print("|cFFFF0000需要加入队伍或团队|r")
             end
-        end
+        end,
+        color = {1, 0.5, 0.5} -- 粉色
     },
     -- 重载界面按钮
     { 
         text = "载",  -- 重载界面
         func = function()
             ReloadUI()
-        end
+        end,
+        color = {0, 1, 1} -- 青色
     },
     -- 新添加的大脚世界频道按钮
     { 
@@ -90,7 +94,8 @@ local channels = {
                 -- 直接切换到频道
                 ChatFrame_OpenChat("/"..channelIndex)
             end
-        end
+        end,
+        color = {0.5, 0.5, 1} -- 浅蓝色
     }
 }
 
@@ -114,14 +119,23 @@ frame:SetPoint(
     db.position.y
 )
 
--- 创建按钮
+-- 创建按钮（仅文字）
 local buttons = {}
 local buttonWidth, buttonHeight, spacing = 25, 22, 5
+local font = "GameFontNormal" -- 使用游戏内置字体
 
 for i, config in ipairs(channels) do
-    local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    local btn = CreateFrame("Button", nil, frame)
     btn:SetSize(buttonWidth, buttonHeight)
-    btn:SetText(config.text)
+    
+    -- 创建文字对象
+    local text = btn:CreateFontString(nil, "OVERLAY", font)
+    text:SetPoint("CENTER")
+    text:SetText(config.text)
+    text:SetTextColor(unpack(config.color)) -- 设置文字颜色
+    -- 添加粗体效果
+    text:SetFont(text:GetFont(), 18, "OUTLINE") -- 18为字体大小，"OUTLINE"为粗体效果
+    btn.text = text
     
     -- 定位按钮
     if i == 1 then
@@ -138,20 +152,6 @@ for i, config in ipairs(channels) do
             ChatFrame_OpenChat("/"..config.channel:lower())
         end
     end)
-    
-    -- 悬停提示
-    btn:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        local tip = config.text == "R" and "随机骰子 (1-100)"
-                  or config.text == "就" and "发起就位确认"
-                  or config.text == "倒" and "发起DBM 5秒倒计时"
-                  or config.text == "载" and "重载用户界面"
-                  or config.text == "世" and "加入并切换到世界频道"  -- 新增的提示
-                  or "切换到"..config.text.."频道"
-        GameTooltip:AddLine(tip)
-        GameTooltip:Show()
-    end)
-    btn:SetScript("OnLeave", GameTooltip_Hide)
     
     buttons[i] = btn
 end
